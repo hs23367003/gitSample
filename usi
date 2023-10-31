@@ -1,0 +1,46 @@
+import wiringpi as pi
+import time
+import requests
+
+class mcp3002:
+    def __init__( self, ss, speed, vref ):
+        self.ss = ss
+        self.speed = speed
+        self.vref = vref
+        
+        pi.wiringPiSPISetup( self.ss, self.speed )
+        
+    def get_value( self, ch ):
+        senddata = 0x6800 |  ( 0x1800 * ch ) 
+
+        buffer = senddata.to_bytes( 2, byteorder='big' )
+
+        pi.wiringPiSPIDataRW( self.ss , buffer )
+
+        value = (( buffer[0] << 8 ) + buffer[1] ) & 0x3ff
+
+        return value
+
+    def get_volt( self, value ):
+        return value * self.vref / float( 1023 )
+
+SPI_CE = 0
+SPI_SPEED = 1000000
+READ_CH = 0
+VREF = 3.3
+DELAY = 3
+
+adc = mcp3002( SPI_CE, SPI_SPEED, VREF )
+while True:
+    value = adc.get_value( READ_CH )
+    volt = adc.get_volt( value )
+    print ("Value:", value, " Volt:", volt )
+    real_value = 2
+    if ( value < real_value ):
+        url = "https://notify-api.line.me/api/notify" 
+        token = "iDKHtClUAoGpSVJvQJBhOXIHuBvZRjxdedb9WES023V"
+        headers = {"Authorization" : "Bearer "+ token} 
+        message =  "牛乳がなくなりました" 
+        payload = {"message" :  message} 
+        r = requests.post(url, headers = headers, params=payload)    
+    time.sleep( DELAY )
